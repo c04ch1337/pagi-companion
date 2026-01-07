@@ -132,6 +132,10 @@ func apiKeyMiddleware(next http.Handler) http.Handler {
 				providedKey = strings.TrimPrefix(authHeader, "Bearer ")
 			}
 		}
+		if providedKey == "" {
+			// Optional support for websocket upgrades / simple clients.
+			providedKey = r.URL.Query().Get("api_key")
+		}
 
 		// Constant-time comparison to prevent timing attacks
 		if subtle.ConstantTimeCompare([]byte(providedKey), []byte(apiKey)) != 1 {
@@ -245,6 +249,8 @@ func main() {
 	r.Post("/plan", handlePlan(planner))
 	// Backwards/alternate naming: allow either endpoint.
 	r.Post("/run", handlePlan(planner))
+	// WebSocket transport for real-time clients.
+	r.Get("/ws/v1/companion", companionWebSocketHandler(planner))
 
 	// 3) Start Server
 	server := &http.Server{

@@ -13,6 +13,7 @@ mod tool;
 mod tool_executor;
 mod tool_web_search;
 mod tool_service;
+mod runner;
 use tool::{execute_mock_tool, ToolExecutionRequest, ToolExecutionResponse};
 
 const DEFAULT_PORT: u16 = 8001;
@@ -81,6 +82,15 @@ async fn main() {
     // Load .env for bare metal if needed
     dotenvy::dotenv().ok();
 
+    // If set, run the Companion Runner demo instead of starting the sandbox servers.
+    // This preserves existing sandbox behavior by default.
+    let run_companion = env::var("RUN_COMPANION_RUNNER")
+        .map(|v| {
+            let v = v.to_ascii_lowercase();
+            v == "1" || v == "true" || v == "yes"
+        })
+        .unwrap_or(false);
+
     let port_str = env::var("RUST_SANDBOX_PORT").unwrap_or_else(|_| DEFAULT_PORT.to_string());
     let grpc_port_str =
         env::var("RUST_SANDBOX_GRPC_PORT").unwrap_or_else(|_| DEFAULT_GRPC_PORT.to_string());
@@ -89,6 +99,23 @@ async fn main() {
     let grpc_port = grpc_port_str.parse::<u16>().unwrap_or(DEFAULT_GRPC_PORT);
 
     init_logging(&log_level);
+
+    if run_companion {
+        info!("run_mode_companion_runner");
+        let user_id = env::var("COMPANION_USER_ID").unwrap_or_else(|_| "test_user_1".to_string());
+        let mut r = match runner::CompanionRunner::new(user_id).await {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("CompanionRunner init failed: {e}");
+                std::process::exit(1);
+            }
+        };
+        if let Err(e) = r.run().await {
+            eprintln!("CompanionRunner failed: {e}");
+            std::process::exit(1);
+        }
+        return;
+    }
 
     // Bind to all interfaces so it works in Docker and bare metal.
     let http_addr = SocketAddr::from(([0, 0, 0, 0], port));
@@ -125,4 +152,3 @@ async fn main() {
     // Run both servers until one of them exits.
     let _ = tokio::join!(http_task, grpc_task);
 }
-

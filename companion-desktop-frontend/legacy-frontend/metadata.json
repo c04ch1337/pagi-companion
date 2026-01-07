@@ -1,0 +1,8 @@
+{
+  "name": "Seraphina - Digital Muse",
+  "description": "A dark-themed, aesthetic AI chat interface featuring a digital muse named Seraphina. Built with React, Tailwind CSS, and the Gemini API.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
